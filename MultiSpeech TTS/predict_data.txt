@@ -1,0 +1,2 @@
+/home/hartmann/dataset/test-clean/2961/961/2961-961-0000.flac|/home/hartmann/dataset/test-clean/2961/961/2961-961-0000.flac|SOCRATES BEGINS THE TIMAEUS WITH A SUMMARY OF THE REPUBLIC|4.665
+/home/hartmann/dataset/train-clean-100/1594/135914/1594-135914-0032.flac|/home/hartmann/dataset/train-clean-100/1594/135914/1594-135914-0032.flac|WHEN SHE HAD DONE SPEAKING|1.73

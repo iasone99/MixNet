@@ -1,0 +1,2 @@
+C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1240/103-1240-0015.flac|C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1240/103-1240-0015.flac|IF HE'D RUN OUT OF TURNIP SEED HE WOULDN'T DRESS UP AND TAKE THE BUGGY TO GO FOR MORE|3.81
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/1089/134686/1089-134686-0010.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/1089/134686/1089-134686-0010.flac|WELL NOW ENNIS I DECLARE YOU HAVE A HEAD AND SO HAS MY STICK|4.405

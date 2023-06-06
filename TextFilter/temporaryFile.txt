@@ -1,0 +1,6 @@
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0000.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0000.flac|ALL IS SAID WITHOUT A WORD
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0002.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0002.flac|I DID NOT WRONG MYSELF SO BUT I PLACED A WRONG ON THEE
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0005.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0005.flac|ALAS I HAVE GRIEVED SO I AM HARD TO LOVE
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0010.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0010.flac|O LOVE O TROTH
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0011.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0011.flac|AND LOVE BE FALSE
+C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0018.flac|C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/908/31957/908-31957-0018.flac|BUT THOU ART NOT SUCH A LOVER MY BELOVED
