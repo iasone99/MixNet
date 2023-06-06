@@ -83,7 +83,7 @@ def add_training_args(parser):
         '--epochs', type=int, default=10
     )
     group.add_argument(
-        '--batch_size', type=int, default=5
+        '--batch_size', type=int, default=1
     )
     group.add_argument(
         '--opt_eps', type=float, default=1e-9

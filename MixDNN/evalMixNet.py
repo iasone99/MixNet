@@ -1,7 +1,7 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import DataLoader
-from MixDNN import create_chunks
+from MixDNN import create_chunks, mixLoss
 from dnsmos import DNSMOS
 import random
 from TTS.api import TTS
@@ -149,7 +149,8 @@ def main():
     DNS_clean_griffin = []
 
     # MSE loss as evaluation metric
-    loss = torch.nn.MSELoss()
+    loss2 = mixLoss.MixLoss()
+    loss=torch.nn.MSELoss()
 
     for i, data in enumerate(data_loader):
 
@@ -256,6 +257,7 @@ def main():
         melspec_noise = melspec_noise[non_empty_mask, :].unsqueeze(0)
         melspec_noise = torch.permute(melspec_noise, (0, 2, 1))  # [B,F,T]
 
+        test=loss2(mel_pred,melspec_target,melspec_noise,melspec_tts)
         # append the loss values
         mel_tts_loss.append(loss(melspec_target, melspec_tts).unsqueeze(0))
         mel_model_loss.append(loss(melspec_target, mel_pred).unsqueeze(0))

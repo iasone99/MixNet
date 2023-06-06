@@ -23,8 +23,8 @@ class MixLoss(nn.Module):
         for i in range(output.size(0)):
             reg2 = reg2 + mel_si_snr(target[i, :, :], output[i, :, :])
         # reg = criterion(output, mel_tts)  # penalize taking the noisy input and therefore high noise
-
-        return 0.001*loss + 0.0001 * reg + (100 - reg2/output.size(0))
+        reg3=(100 - reg2/output.size(0))
+        return loss + 10*reg + 0.01*reg3
 
 
 def mel_si_snr(target: Union[torch.tensor, np.ndarray],
