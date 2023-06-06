@@ -40,6 +40,7 @@ from DataLoader.args import (
 import os
 import torch
 
+
 def get_tokenizer(args):
     """
     This function gives the tokenizer for the dataloader. It can be used together with MultiSpeech TTS
@@ -58,18 +59,6 @@ def get_tokenizer(args):
     tokenizer.save_tokenizer(tokenizer_path)
     print(f'tokenizer saved to {tokenizer_path}')
     return tokenizer
-
-
-
-def adjust_learning_rate(optimizer, step_num, warmup_step=40):
-    """
-    This function implements warmup learning rate
-    """
-    lr = hp.lr * warmup_step ** 0.5 * min(step_num * warmup_step ** -1.5, step_num ** -0.5)
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
 
 
 def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
@@ -205,12 +194,9 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
     mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,T,F]
     return mel, mel_target
 
-
-# -- For updating learning rate
 def update_lr(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-
 
 def main():
     args = get_args()
@@ -272,11 +258,11 @@ def main():
                           num_chunks_in=int(2 * num_frames / chunk_size),
                           num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
     print("This model has " + str(sum(p.numel() for p in model.parameters() if p.requires_grad)) + " parameters")
-    #loss
+    # loss
     loss_function = mixLoss.MixLoss()
-    #optimizer
+    # optimizer
     # optimizer = torch.optim.SGD(model.parameters(), lr=curr_lr, momentum=0.9, weight_decay=hp.weight_decay)
-    optimizer = torch.optim.Adam(model.parameters(), lr=curr_lr, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=curr_lr, weight_decay=hp.weight_decay)
     optimizer.zero_grad()
 
     epoch_start = 0
@@ -294,13 +280,18 @@ def main():
         pbar = tqdm(data_loader)
         train_loss = 0
         test_loss = 0
-        #for every batch
+        # for every batch
         for i, data in enumerate(data_loader):
             pbar.set_description("Processing at epoch %d" % epoch)
             global_step += 1
-            if global_step < 40:
-                adjust_learning_rate(optimizer, global_step)
-            #extract data of shape [B,frames,features]
+            if global_step < 25:
+                curr_lr=hp.lr*global_step/hp.warmup_steps
+                update_lr(optimizer, curr_lr)
+            elif epoch % hp.learning_rate_decay_interval == 0:
+                curr_lr *= hp.learning_rate_decay_rate  # lr = lr * rate
+                update_lr(optimizer, curr_lr)
+
+            # extract data of shape [B,frames,features]
             mel, mel_target = batch_mels_wav(data=data, mel_spectrogram=mel_spectrogram, num_frames=num_frames,
                                              tts=tts)
 
@@ -313,11 +304,11 @@ def main():
             norm_factor = torch.sum(mask, dim=1).unsqueeze(2).permute(0, 2, 1)
             mask = mask / norm_factor
 
-            mask[mask != mask] = 0 # cut out NaN
+            mask[mask != mask] = 0  # cut out NaN
             mel = torch.permute(mel, (0, 2, 1))  # [B,F,T]
             mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,F,T]
 
-            if chunk_size == 1: # num_chunks=num_frames: each frame can be mixed with each other frame->simple matmul
+            if chunk_size == 1:  # num_chunks=num_frames: each frame can be mixed with each other frame->simple matmul
                 mel_pred = torch.matmul(mel, mask)
             else:  # the mask maps chunks of the mel->special function necessary
                 mel_pred = create_chunks.join_chunks(mel, chunk_size, mask, int(num_frames / chunk_size))
@@ -344,7 +335,7 @@ def main():
                 for param in model.parameters():
                     if not param.grad == None:
                         tmp.append(param.grad.abs().cpu().mean())
-                gradients.append(np.mean(tmp)) #plot gradients
+                gradients.append(np.mean(tmp))  # plot gradients
                 tmp = []
                 optimizer.step()
                 optimizer.zero_grad()
@@ -365,7 +356,7 @@ def main():
             if global_step % hp.save_step == 0:
                 t.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict()},
-                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetLowerWarmUp_%d.pth.tar' % save_step))
+                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetMelSNRLoss_%d.pth.tar' % save_step))
 
             fig, axs = plt.subplots(3)
             fig.tight_layout(pad=0.5)
@@ -378,6 +369,7 @@ def main():
             axs[0].set_title('Training Loss')
             axs[1].set_title('Testing Loss')
             axs[2].set_title('Gradients')
+
             plt.grid(True)
 
             axs[0].set_xlabel('Epoch')
@@ -388,9 +380,6 @@ def main():
             plt.savefig("loss_gradients.svg")
             matplotlib.pyplot.close()
             # -- Decay learning rate
-            if (epoch) % hp.learning_rate_decay_interval == 0:
-                curr_lr *= hp.learning_rate_decay_rate  # lr = lr * rate
-                update_lr(optimizer, curr_lr)
 
 
 def add_noise(
@@ -463,8 +452,6 @@ def add_noise(
     return waveform + scaled_noise  # (*, L)
 
 
-
-
 def plot_mel(mel, mel_pred, mel_target):
     """
     This function plots the three mel spectrograms of shape [1,features,frames]
@@ -498,7 +485,6 @@ def plot_mel(mel, mel_pred, mel_target):
 
 
 def strech_signal(reference, input):
-
     """
     This function stretches the waveform input to the length of the reference waveform
     :param reference: numpy array of shape [N,]
@@ -542,7 +528,7 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts, ch
         mel = torch.permute(mel, (0, 2, 1))  # [B,F,T]
         mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,F,T]
 
-        #apply the mask
+        # apply the mask
         if chunk_size == 1:
             mel_pred = torch.matmul(mel, mask)
         else:

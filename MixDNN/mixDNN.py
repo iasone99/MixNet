@@ -20,7 +20,7 @@ class MixDNN(nn.Module):
         self.act = nn.ReLU()
         # The linear layer that maps from hidden state space to mel
         self.linear_out = nn.Linear(hidden_size, output_len)
-
+    
     def forward(self, mel):  # mel is of shape [B,features,T]
         mel = torch.reshape(mel, (-1, self.input_len))
         # N, 1
