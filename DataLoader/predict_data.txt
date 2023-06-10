@@ -1,2 +1,0 @@
-C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1240/103-1240-0015.flac|C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1240/103-1240-0015.flac|IF HE'D RUN OUT OF TURNIP SEED HE WOULDN'T DRESS UP AND TAKE THE BUGGY TO GO FOR MORE|3.81
-C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1241/103-1241-0019.flac|C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/103/1241/103-1241-0019.flac|I HAD MADE UP MY MIND THAT IF YOU DIDN'T COME FOR ME TO NIGHT|3.025

@@ -1,7 +1,7 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import DataLoader
-from MixDNN import create_chunks, mixLoss, mixCNN
+from MixDNN import create_chunks, mixLoss, mixCNN, chunkNet
 from dnsmos import DNSMOS
 import random
 from TTS.api import TTS
@@ -67,7 +67,7 @@ def main():
     audio_pipeline, text_pipeline = get_pipelines(tokenizer, aud_args)
 
     data_loader = get_batch_loader(
-        TextLoader(args.predict_path),
+        TextLoader(args.train_path),
         audio_pipeline,
         text_pipeline,
         aud_padder,
@@ -107,15 +107,14 @@ def main():
 
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
-    num_chunks = int(2 * num_frames / chunk_size)
-    model = mixCNN.MixCNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size),
-                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+    num_chunks_per_process = hp.num_chunks_per_process
+    model = chunkNet.ChunkDNN(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
+                              hp.hidden_size_DNN, 2 * num_chunks_per_process,
+                              num_chunks_per_process).to(
+        hp.device)
 
     # load model
-    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixCNNCh2Loss2", 100))
+    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1BIG", 32))
     model.load_state_dict(state_dict['model'])
     model = model.to(hp.device)
     model.eval()
@@ -217,33 +216,37 @@ def main():
         melspec_tts = mel_spectrogram(wav_tts.to(hp.device)).unsqueeze(0)
 
         # pad to obtain required DNN input size
-        melspec_tts = F.pad(melspec_tts, (
-            num_frames - melspec_tts.size(2), 0))  # zero pad to shape all inputs to one output
+        pad_len_noise = melspec_noise.size(2)
+        pad_len_tts = melspec_tts.size(2)
+
         melspec_noise = F.pad(melspec_noise, (
-            num_frames - melspec_noise.size(2), 0))  # zero pad to shape all inputs to one output
+            num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
+        melspec_tts = F.pad(melspec_tts, (
+            num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
+
+        melspec_tts[:, :, :pad_len_tts] = -1
+        melspec_noise[:, :, :pad_len_noise] = -1
+
+        pad_len_clean = melspec_target.size(2)
+        melspec_target = F.pad(melspec_target, (
+            num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
+        melspec_target[:, :, :pad_len_clean] = -1
 
         # concatenate tts and noisy melspec along the time domain
-        mel = torch.cat((melspec_tts, melspec_noise), 2)
-        mel = torch.permute(mel, (0, 2, 1))  # [1,T,F]
+        mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
+        mel = torch.permute(mel, (0, 1, 3, 2))  # [1,C,T,F]
+        melspec_noise = melspec_noise.to(hp.device)
+        melspec_tts = melspec_tts.to(hp.device)
 
         mel = mel.to(hp.device)
         melspec_target = melspec_target.to(hp.device)
 
         with t.no_grad():
-            mask = model(mel)  # forward pass
-            # normalize the mask: ensure that the chunk weights sum to one for each frame
-            norm_factor = torch.sum(mask, dim=1).unsqueeze(2).permute(0, 2, 1)
-            mask = mask / norm_factor
-            mask[mask != mask] = 0
-            mel = torch.permute(mel, (0, 2, 1))  # [1,F,T]
+            mel_pred = model(mel)  # forward pass
 
-            if chunk_size == 1:  # num_chunks=num_frames: each frame can be mixed with each other frame->simple matmul
-                mel_pred = torch.matmul(mel, mask)
-            else:  # the mask maps chunks of the mel->special function necessary
-                mel_pred = create_chunks.join_chunks(mel, chunk_size, mask, int(num_frames / chunk_size))
-
-            # zero columns are automatically mapped to zero
-            non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
+            # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
+            #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
+            non_empty_mask = (mel[:, 1,:, :]+torch.ones_like(mel[:, 1, :, :])).abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred = mel_pred[non_empty_mask, :].unsqueeze(0)
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -256,6 +259,10 @@ def main():
         melspec_noise = torch.permute(melspec_noise, (0, 2, 1))
         melspec_noise = melspec_noise[non_empty_mask, :].unsqueeze(0)
         melspec_noise = torch.permute(melspec_noise, (0, 2, 1))  # [B,F,T]
+
+        melspec_target = torch.permute(melspec_target, (0, 2, 1))
+        melspec_target = melspec_target[non_empty_mask, :].unsqueeze(0)
+        melspec_target = torch.permute(melspec_target, (0, 2, 1))  # [B,F,T]
 
         # append the loss values
         mel_tts_loss.append(loss(melspec_target, melspec_tts).unsqueeze(0))

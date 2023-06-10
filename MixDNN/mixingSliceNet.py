@@ -51,6 +51,7 @@ def get_tokenizer(args):
     print(f'tokenizer saved to {tokenizer_path}')
     return tokenizer
 
+
 def main():
     """
     This function performs mixing of the samples from the predict_path text file. It adds noise and performs TTS and
@@ -95,8 +96,9 @@ def main():
     ).to(hp.device)
 
     # dictionary for similar sounding words
-    dictionary = {'DRESS': ['MESS', 'REST', 'GUESS'], 'MIND': ['KIND', 'WIND'], 'STAIRS': ['CARES', 'SQUARE'], 'STICK': ['KICK','SICK']}
-    #dictionary for random words
+    dictionary = {'DRESS': ['MESS', 'REST', 'GUESS'], 'MIND': ['KIND', 'WIND'], 'STAIRS': ['CARES', 'SQUARE'],
+                  'STICK': ['KICK', 'SICK']}
+    # dictionary for random words
     dictionary_rand = ['DRESS', 'MESS', 'REST', 'GUESS''MIND', 'KIND', 'WIND' 'STAIRS', 'CARES', 'SQUARE']
 
     # evaluate DNSMOS
@@ -108,7 +110,8 @@ def main():
     model = mixCNN.MixCNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
                           input_len=2 * hp.num_frames * hp.num_mels,
                           output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size), num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+                          num_chunks_in=int(2 * num_frames / chunk_size),
+                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
 
     state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1", 100))
     model.load_state_dict(state_dict['model'])
@@ -127,7 +130,6 @@ def main():
         wav = torchaudio.functional.resample(wav, in_sr, hp.sr, lowpass_filter_width=6)
         write("./samples/clean" + str(i) + ".wav", hp.sr, wav.numpy())
 
-        
         SAMPLE_NOISE = download_asset("tutorial-assets/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo-8000hz.wav")
         noise, _ = torchaudio.load(SAMPLE_NOISE)
         noise = torch.cat((
@@ -191,21 +193,19 @@ def main():
         melspec_noise = F.pad(melspec_noise, (
             num_frames - melspec_noise.size(2), 0))  # zero pad to shape all inputs to one output
 
+        # concatenate tts and noisy melspec along the time domain
         mel = torch.cat((melspec_tts, melspec_noise), 2)
         mel = torch.permute(mel, (0, 2, 1))  # [1,T,F]
+        mel_target = mel_target.to(hp.device)
+
+        mel = mel.to(hp.device)
+        melspec_target = melspec_target.to(hp.device)
 
         with t.no_grad():
-            mask = model(mel)  # forward pass
-            # normalize the mask
-            norm_factor = torch.sum(mask, dim=1).unsqueeze(2).permute(0, 2, 1)
-            mask = mask / norm_factor  # ensure that the chunk weights sum to one for each frame
-            mask[mask != mask] = 0
-            mel = torch.permute(mel, (0, 2, 1))  # [1,F,T]
-
-            if chunk_size == 1:
-                mel_pred = torch.matmul(mel, mask)
-            else:
-                mel_pred = create_chunks.join_chunks(mel, chunk_size, mask, int(num_frames / chunk_size))
+            mel_pred = model(mel)  # forward pass
+            mel_pred = mel_pred.permute(0, 2, 1) #[1,F,T]
+            mel = mel.permute(0, 2, 1) #[1,F,T]
+            mel_target = mel_target.permute(0, 2, 1)
 
             # zero columns are automatically mapped to zero
             non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
@@ -314,7 +314,6 @@ def plot_mel(mel, mel_pred, mel_target):
 
 
 def strech_signal(reference, input):
-
     """
     This function stretches the waveform input to the length of the reference waveform
     :param reference: numpy array of shape [N,]

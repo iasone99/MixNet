@@ -2,6 +2,8 @@ import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
+from MixDNN import mixCNN, mixCNN2
+
 plt.rcParams['axes.grid'] = True
 import mixDNN
 import random
@@ -85,6 +87,7 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
 
         wav, in_sr = librosa.load(file_path)
         wav = torch.from_numpy(wav).float()
+        wav = torchaudio.functional.resample(wav, in_sr, hp.sr, lowpass_filter_width=6)
 
         SAMPLE_NOISE = download_asset("tutorial-assets/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo-8000hz.wav")
         noise, _ = torchaudio.load(SAMPLE_NOISE)
@@ -192,11 +195,13 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
 
     mel = torch.permute(mel, (0, 2, 1))  # [B,T,F]
     mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,T,F]
-    return mel, mel_target
+    return mel, mel_target, melspec_noise, melspec_tts
+
 
 def update_lr(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
 
 def main():
     args = get_args()
@@ -252,14 +257,14 @@ def main():
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
-    model = mixDNN.MixDNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size),
-                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+    model = mixCNN2.MixCNN2(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
+                            input_len=2 * hp.num_frames * hp.num_mels,
+                            output_len=int(num_frames / chunk_size) * num_chunks,
+                            num_chunks_in=int(2 * num_frames / chunk_size),
+                            num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
     print("This model has " + str(sum(p.numel() for p in model.parameters() if p.requires_grad)) + " parameters")
     # loss
-    loss_function = mixLoss.MixLoss()
+    loss_function = mixLoss.MixLoss5()
     # optimizer
     # optimizer = torch.optim.SGD(model.parameters(), lr=curr_lr, momentum=0.9, weight_decay=hp.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), lr=curr_lr, weight_decay=hp.weight_decay)
@@ -284,20 +289,27 @@ def main():
         for i, data in enumerate(data_loader):
             pbar.set_description("Processing at epoch %d" % epoch)
             global_step += 1
-            if global_step < 25:
-                curr_lr=hp.lr*global_step/hp.warmup_steps
+            if global_step < hp.warmup_steps:
+                curr_lr = hp.lr * global_step / hp.warmup_steps
                 update_lr(optimizer, curr_lr)
             elif epoch % hp.learning_rate_decay_interval == 0:
                 curr_lr *= hp.learning_rate_decay_rate  # lr = lr * rate
                 update_lr(optimizer, curr_lr)
 
             # extract data of shape [B,frames,features]
-            mel, mel_target = batch_mels_wav(data=data, mel_spectrogram=mel_spectrogram, num_frames=num_frames,
-                                             tts=tts)
+            mel, mel_target, mel_noise, mel_tts = batch_mels_wav(data=data, mel_spectrogram=mel_spectrogram,
+                                                                 num_frames=num_frames,
+                                                                 tts=tts)
 
             mel = mel.to(hp.device)
             mel_target = mel_target.to(hp.device)
+            mel_noise = mel_noise.to(hp.device)
+            mel_tts = mel_tts.to(hp.device)
 
+            mask = model(mel)
+            mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,F,T]
+
+            """
             mask = model(mel)  # forward pass
             # normalize the mask: ensure that the chunk weights sum to one for each frame
             # Mask is of shape [B,n_frames,2*n_frames] or [B, num_chunks_to_join, num_chunks]
@@ -318,12 +330,12 @@ def main():
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred[~non_empty_mask, :] = 0
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
-
+"""
             # plot results
-            plot_mel(mel, mel_pred, mel_target)
-
+            #plot_mel(mel, mel_pred, mel_target)
+            loss=loss_function(mask,mel_target,mel,mel_noise,mel_tts)
             # compute the loss
-            loss = loss_function(mel_pred, mel_target, mel[:, :, num_frames:], mel[:, :, :num_frames])
+            # = loss_function(mel_pred, mel_target, mel_noise, mel_tts)
             loss.requires_grad_(True)
 
             # run backpass without gradient accumulation: equal to hp.gradient_accumulations=1
@@ -356,7 +368,7 @@ def main():
             if global_step % hp.save_step == 0:
                 t.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict()},
-                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetMelSNRLoss_%d.pth.tar' % save_step))
+                       os.path.join(args.checkpoint_dir, 'checkpoint_CNNCh1H1Loss2_%d.pth.tar' % save_step))
 
             fig, axs = plt.subplots(3)
             fig.tight_layout(pad=0.5)
@@ -377,7 +389,7 @@ def main():
             axs[2].set_xlabel('Epoch #batches')
             plt.grid(True)
 
-            plt.savefig("loss_gradients.svg")
+            plt.savefig("loss_gradientsCh1H1.svg")
             matplotlib.pyplot.close()
             # -- Decay learning rate
 
@@ -480,7 +492,7 @@ def plot_mel(mel, mel_pred, mel_target):
     fig.colorbar(im, ax=axs[2])
     fig.tight_layout(pad=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('mel.svg')
+    plt.savefig('melCh1.svg')
     matplotlib.pyplot.close()
 
 
@@ -514,9 +526,12 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts, ch
     for i, data in enumerate(test_loader):
         model.eval()
         file_path, embeds_path, text = data
-        mel, mel_target = batch_mels_wav(data=data, mel_spectrogram=mel_spectrogram, num_frames=num_frames,
+        mel, mel_target,mel_noise,mel_tts = batch_mels_wav(data=data, mel_spectrogram=mel_spectrogram, num_frames=num_frames,
                                          tts=tts)
+        mask = model(mel)  # forward pass
+        mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,F,T]
 
+        """
         mask = model(mel)  # forward pass
         # normalize the mask: ensure that the chunk weights sum to one for each frame
         # Mask is of shape [B,n_frames,2*n_frames]
@@ -539,9 +554,10 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts, ch
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
         mel_pred[~non_empty_mask, :] = 0
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
-
+        """
         # compute the loss
-        test_loss = loss_function(mel_pred, mel_target, mel[:, :, num_frames:], mel[:, :, :num_frames])
+        test_loss = loss_function(mask, mel_target, mel,mel_noise,mel_tts)
+        #test_loss = loss_function(mel_pred, mel_target, mel[:, :, num_frames:], mel[:, :, :num_frames])
         testing_loss = testing_loss + test_loss.item()
         model.train()
     return testing_loss

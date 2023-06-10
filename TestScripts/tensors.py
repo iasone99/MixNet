@@ -96,4 +96,8 @@ loss=torch.nn.MSELoss()
 f=loss(d,e)
 d=1
 
+e=torch.flatten(e)
+f=torch.count_nonzero(e)
+g=1
+
 

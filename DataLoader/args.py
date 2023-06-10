@@ -65,7 +65,7 @@ def add_training_args(parser):
         '--train_path', type=str, default='train_data.txt'
     )
     group.add_argument(
-        '--test_path', type=str, default='test_data.txt'
+        '--test_path', type=str, default='test_data5.txt'
     )
     group.add_argument(
         '--predict_path', type=str, default='predict_data.txt'

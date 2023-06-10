@@ -12,15 +12,15 @@ def list_paths(path):
     return [item for subitem in non_empty_dirs for item in subitem] # flatten the list
 
 
-folders1=list_paths("C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean")
+folders1=list_paths("C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100")
 for folder1 in folders1:
-    folders2=list_paths("C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/"+folder1)
+    folders2=list_paths("C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/"+folder1)
     #print("suc")
     for folder2 in folders2:
-        subpath="C:/Users/nicol/Downloads/DNS/test-clean/LibriSpeech/test-clean/"+folder1+"/"+folder2+"/";
+        subpath="C:/Users/nicol/Downloads/DNS/train-clean/LibriSpeech/train-clean-100/"+folder1+"/"+folder2+"/";
         mylines = []
         file_name=subpath+folder1+"-"+folder2+'.trans.txt'
-        #print("suc")
+        print("suc")
 
         # Declare an empty list named mylines.
         with open (file_name, 'rt') as myfile: # Open lorem.txt for reading text data.
