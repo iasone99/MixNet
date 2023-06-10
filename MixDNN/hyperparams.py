@@ -12,7 +12,7 @@ n_iter = 60
 
 epochs = 10000
 lr = 0.001
-save_step = 16
+save_step = 100
 image_step = 500
 n_mfcc = 20
 layers_DNN = 5
@@ -22,7 +22,7 @@ chunk_size = 20
 num_chunks_per_process = 2
 gradient_accumulations = 1  # 5
 weight_decay = 0.0
-learning_rate_decay_interval = 10  # decay for every 100 epochs
-learning_rate_decay_rate = 0.8  # lr = lr * rate #0.999
+learning_rate_decay_interval = 5  # decay for every 100 epochs
+learning_rate_decay_rate = 0.7  # lr = lr * rate #0.999
 device = 'cpu'
 cleaners = 'english_cleaners'

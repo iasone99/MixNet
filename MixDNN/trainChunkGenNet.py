@@ -413,8 +413,8 @@ def main():
     curr_lr = hp.lr
     num_frames = hp.num_frames
     num_chunks_per_process = hp.num_chunks_per_process
-    model = chunkNet.ChunkNet(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
-                                    hp.hidden_size_DNN, 2 * num_chunks_per_process,
+    model = chunkGenNet.ChunkGenNet(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
+                                    hp.hidden_size_DNN, hp.num_mels * hp.chunk_size,
                                     num_chunks_per_process).to(
         hp.device)
     print("This model has " + str(sum(p.numel() for p in model.parameters() if p.requires_grad)) + " parameters")
@@ -527,7 +527,7 @@ def main():
             axs[2].set_xlabel('Epoch #batches')
             plt.grid(True)
 
-            plt.savefig("loss_gradientsChunkNet2.svg")
+            plt.savefig("loss_gradientsChunkNet.svg")
             matplotlib.pyplot.close()
             # -- Decay learning rate
 
@@ -636,7 +636,7 @@ def plot_mel(mel, mel_pred, mel_target):
     fig.colorbar(im, ax=axs[3])
     fig.tight_layout(pad=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('melChunk2.svg')
+    plt.savefig('melChunk.svg')
     matplotlib.pyplot.close()
 
 

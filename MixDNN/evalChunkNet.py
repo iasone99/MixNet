@@ -108,13 +108,13 @@ def main():
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
     num_chunks_per_process = hp.num_chunks_per_process
-    model = chunkNet.ChunkDNN(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
+    model = chunkNet.ChunkNet(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
                               hp.hidden_size_DNN, 2 * num_chunks_per_process,
                               num_chunks_per_process).to(
         hp.device)
 
     # load model
-    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1BIG", 32))
+    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1BIG", 48))
     model.load_state_dict(state_dict['model'])
     model = model.to(hp.device)
     model.eval()

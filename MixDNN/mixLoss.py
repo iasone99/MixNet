@@ -53,9 +53,9 @@ class MixLoss(nn.Module):
         noise_split = mel_noise.split(hp.chunk_size, dim=2)
 
         for idx, chunk in enumerate(output_split):
-            reg_chunk = reg_chunk + criterion(output_split[idx], noise_split[idx]) #* criterion(tts_split[idx], noise_split[idx])
+            reg_chunk = reg_chunk + criterion(output_split[idx], noise_split[idx]) * criterion(tts_split[idx], noise_split[idx])
 
-        return 0.5*loss + reg#reg_chunk
+        return 0.5*loss + reg_chunk + reg
 
 
 class MixLoss3(nn.Module):

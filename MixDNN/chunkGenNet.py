@@ -4,10 +4,10 @@ import torch.nn.functional as F
 import hyperparams as hp
 
 
-class ChunkNet(nn.Module):
+class ChunkGenNet(nn.Module):
 
     def __init__(self, input_len, num_layers, hidden_size, output_len, num_chunks_per_process):
-        super(ChunkNet, self).__init__()
+        super(ChunkGenNet, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.input_len = input_len
@@ -59,12 +59,12 @@ class ChunkNet(nn.Module):
                 frame = torch.cat(list, dim=1)  # [B,2*C,num_chunks,T]
             """
 
-            if (idx < int(self.num_chunks_per_process/2)):
+            if (idx < int(self.num_chunks_per_process / 2)):
                 list = []
                 for i in range(self.num_chunks_per_process):
                     list.append(mel_split[i])
-                frame = torch.cat((list), dim=1)
-            elif (idx >= (len(mel_split) - 1) - int(self.num_chunks_per_process/2)):
+                frame = torch.cat(list, dim=1)
+            elif (idx >= (len(mel_split) - 1) - int(self.num_chunks_per_process / 2)):
                 list = []
                 for i in range(self.num_chunks_per_process):
                     list.append(mel_split[idx - i])
@@ -82,24 +82,15 @@ class ChunkNet(nn.Module):
             frame_flat = x3.view(-1, 768)
             x = self.linear_in(frame_flat)
             x = self.norm(x)
-            x = self.act3(x)
+            x = self.act(x)
             for i in range(self.num_layers):
                 x = self.linear_h(x)
                 x = self.norm(x)
-                x = self.act3(x)
+                x = self.act(x)
                 x = self.dropout(x)
-            out = (torch.abs(self.linear_out(x)))
-            norm_factor = torch.sum(out, dim=1).unsqueeze(1)
-            out = out / norm_factor
-
-            mel_apnd = []
-            for i in range(frame.size(0)):
-                product = 0
-                for j in range(out.size(1)):
-                    product = product + (frame[i, j, :, :] * out[i, j])
-                mel_apnd.append(product.unsqueeze(0))
-            mel_apnd = torch.cat(mel_apnd, dim=0)
-            mel_out.append(mel_apnd)
+            out = ((self.linear_out(x)))
+            out = torch.reshape(out, (-1, hp.chunk_size,hp.num_mels))
+            mel_out.append(out)
         mel_out = torch.cat(mel_out, dim=1)
         mel_out = mel_out.permute(0, 2, 1)  # [B,F,T]
         return mel_out
@@ -108,5 +99,6 @@ class ChunkNet(nn.Module):
 if __name__ == '__main__':
     # for testing
     a = torch.rand(2, 2, 800, 64)
-    m = ChunkNet(5 * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN, hp.hidden_size_DNN, 2 * 5, 5)
+    m = ChunkGenNet(5 * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN, hp.hidden_size_DNN, hp.num_mels * hp.chunk_size,
+                    5)
     b = m(a)
