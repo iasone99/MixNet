@@ -20,10 +20,12 @@ from typing import Union
 import torch.nn.functional as F
 import torchaudio.functional
 import mixDNN
+import mixCNNCh1
 import numpy as np
 import hyperparams as hp
 from torchaudio.utils import download_asset
 from scipy.io.wavfile import write
+import shiftMel
 
 from DataLoader.args import (
     get_args,
@@ -107,7 +109,7 @@ def main():
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
-    model = mixCNN.MixCNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
+    model = mixCNNCh1.MixCNNCh1(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
                           input_len=2 * hp.num_frames * hp.num_mels,
                           output_len=int(num_frames / chunk_size) * num_chunks,
                           num_chunks_in=int(2 * num_frames / chunk_size),
@@ -188,10 +190,19 @@ def main():
         melspec_tts = mel_spectrogram(wav_tts.to(hp.device)).unsqueeze(0)
 
         # pad to obtain required DNN input size
-        melspec_tts = F.pad(melspec_tts, (
-            num_frames - melspec_tts.size(2), 0))  # zero pad to shape all inputs to one output
-        melspec_noise = F.pad(melspec_noise, (
-            num_frames - melspec_noise.size(2), 0))  # zero pad to shape all inputs to one output
+        pad_len_noise = melspec_noise.size(2)
+        pad_len_tts = melspec_tts.size(2)
+
+        mel_appnd = hp.pad_value * torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+        melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
+        mel_appnd = hp.pad_value * torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+        melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
+
+        pad_len_clean = melspec_target.size(2)
+        mel_appnd = hp.pad_value * torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+        melspec_target = (torch.cat((mel_appnd, melspec_target), dim=2))
+
+        melspec_tts = shiftMel.shiftMel(melspec_tts.unsqueeze(1), 2, 20).squeeze(1)
 
         # concatenate tts and noisy melspec along the time domain
         mel = torch.cat((melspec_tts, melspec_noise), 2)

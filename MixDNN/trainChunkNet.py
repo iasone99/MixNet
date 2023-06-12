@@ -7,6 +7,7 @@ import mixCNNCh2, chunkNet, chunkGenNet
 plt.rcParams['axes.grid'] = True
 import mixDNN
 import random
+import shiftMel
 
 from TTS.api import TTS
 from tensorboardX import SummaryWriter
@@ -182,29 +183,18 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
 
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-
-    """
-    melspec_noise = F.pad(melspec_noise, (
-        num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
-    melspec_tts = F.pad(melspec_tts, (
-        num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
-    """
-
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
 
-    mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
-
     pad_len_clean = melspec_target.size(2)
-    """
-    mel_target = F.pad(melspec_target, (
-        num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
-    """
-
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_appnd = hp.pad_value * torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
+
+    melspec_tts = shiftMel.shiftMel(melspec_tts.unsqueeze(1), 3, 10).squeeze(1)
+
+    mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]
     mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,T,F]
@@ -333,31 +323,21 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
     melspec_noise = mel_spectrogram(wavs_noise.to(hp.device))
     melspec_tts = mel_spectrogram(wavs_tts.to(hp.device))
 
+    # padding
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-
-    """
-    melspec_noise = F.pad(melspec_noise, (
-        num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
-    melspec_tts = F.pad(melspec_tts, (
-        num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
-    """
-
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
+    # padding
+    pad_len_clean = melspec_target.size(2)
+    mel_appnd = hp.pad_value * torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
+
+    melspec_tts = shiftMel.shiftMel(melspec_tts.unsqueeze(1), 3, 10).squeeze(1)
 
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
-
-    pad_len_clean = melspec_target.size(2)
-    """
-    mel_target = F.pad(melspec_target, (
-        num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
-    """
-
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
-    mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]
     mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,T,F]
@@ -443,9 +423,9 @@ def main():
     global_step = 0
     for epoch in range(hp.epochs):
         # the accumulated training and testing losses over one epoch
-        #if epoch > 0:
-        #    train_losses.append(train_loss)
-        #    test_losses.append(test_loss)
+        if epoch > 0:
+            train_losses.append(train_loss)
+            test_losses.append(test_loss)
         pbar = tqdm(data_loader)
         train_loss = 0
         test_loss = 0
@@ -472,10 +452,10 @@ def main():
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
             #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
-            mel_shift = mel[:, 1, :, :] + torch.ones_like(mel[:, 1, :, :])
+            mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
             non_empty_mask = mel_shift.abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
-            mel_pred[~non_empty_mask, :] = -1
+            mel_pred[~non_empty_mask, :] = hp.pad_value
             # mel_pred[:, :pad_len_noise, :] = 0
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_target = mel_target.permute(0, 2, 1)
@@ -506,19 +486,19 @@ def main():
             # optimizer.step()
 
             # for tracing the loss
-            #train_loss = train_loss + loss.item()
+            train_loss = train_loss + loss.item()
 
             # testing
             #test_loss = test_loss + test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts)
 
-            train_losses.append(loss.item())
-            test_losses.append(test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts))
+            #train_losses.append(loss.item())
+            #test_losses.append(test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts))
 
             save_step = global_step + epoch_start
             if global_step % hp.save_step == 0:
                 t.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict()},
-                       os.path.join(args.checkpoint_dir, 'checkpoint_ChunkNetDNNBIG_%d.pth.tar' % save_step))
+                       os.path.join(args.checkpoint_dir, 'checkpoint_ChunkNetCNNTTS_%d.pth.tar' % save_step))
 
             fig, axs = plt.subplots(3)
             fig.tight_layout(pad=0.5)
@@ -692,10 +672,10 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts):
 
         # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
         # non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
-        mel_shift = mel[:, 1, :, :] + torch.ones_like(mel[:, 1, :, :])
+        mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
         non_empty_mask = mel_shift.abs().sum(dim=2).bool()
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
-        mel_pred[~non_empty_mask, :] = -1
+        mel_pred[~non_empty_mask, :] = hp.pad_value
         # mel_pred[:, :pad_len_noise, :] = 0
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
         mel_target = mel_target.permute(0, 2, 1)

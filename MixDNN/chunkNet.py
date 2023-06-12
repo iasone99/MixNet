@@ -17,8 +17,8 @@ class ChunkNet(nn.Module):
         self.num_chunks_per_process = num_chunks_per_process
 
         self.norm = nn.BatchNorm1d(hidden_size)
-        self.linear_in = nn.Linear(768, hidden_size)
-        #elf.linear_in = nn.Linear(2*64 * hp.chunk_size * hp.num_chunks_per_process, hidden_size)
+        #self.linear_in = nn.Linear(768, hidden_size)
+        self.linear_in = nn.Linear(2*64 * hp.chunk_size * hp.num_chunks_per_process, hidden_size)
 
         self.linear_h = nn.Linear(hidden_size, hidden_size)
         self.act = nn.ReLU()
@@ -43,14 +43,13 @@ class ChunkNet(nn.Module):
         mel_split = mel.split(hp.chunk_size, dim=2)
         mel_out = []
         for idx, frame in enumerate(mel_split):  # N, 1
-
             """
-            if (idx == 0):
+            if (idx < int(self.num_chunks_per_process/2)): #if ==0
                 list = []
                 for i in range(self.num_chunks_per_process):
                     list.append(mel_split[i])
                 frame = torch.cat((list), dim=1)
-            elif (idx == len(mel_split) - 1):
+            elif (idx >= (len(mel_split) - 1) - int(self.num_chunks_per_process/2)): #if == len(mel_split-1)
                 list = []
                 for i in range(self.num_chunks_per_process):
                     list.append(mel_split[idx - i])
@@ -59,7 +58,7 @@ class ChunkNet(nn.Module):
             else:
                 list = []
                 for i in range(self.num_chunks_per_process):
-                    list.append(mel_split[idx - int(self.num_chunks_per_process / 2)])
+                    list.append(mel_split[idx + 1 - int(self.num_chunks_per_process / 2)])
                 frame = torch.cat(list, dim=1)  # [B,2*C,num_chunks,T]
             """
 
@@ -80,11 +79,12 @@ class ChunkNet(nn.Module):
                     list.append(mel_split[idx + i + 1 - int(self.num_chunks_per_process / 2)])
                 frame = torch.cat(list, dim=1)  # [B,2*C,num_chunks,T]
 
+            #frame[:,1,:,:]=-1
             x1 = self.pooling22(self.act2(self.bn1(self.conv1(frame))))
             x2 = self.pooling22(self.act2(self.bn2(self.conv2(x1))))
             x3 = self.act2(self.bn3(self.conv3(x2)))
-            frame_flat = x3.view(-1, 768)
-            #frame_flat = frame.view(-1, 2*64*hp.chunk_size*hp.num_chunks_per_process)
+            #frame_flat = x3.view(-1, 768)
+            frame_flat = frame.view(-1, 2*64*hp.chunk_size*hp.num_chunks_per_process)
             x = self.linear_in(frame_flat)
             x = self.norm(x)
             x = self.act3(x)
@@ -94,8 +94,13 @@ class ChunkNet(nn.Module):
                 x = self.act3(x)
                 x = self.dropout(x)
             out = (torch.abs(self.linear_out(x)))
+            #for j in range(out.size(1)):
+            #    if j % 2 != 0:
+            #        out[:,j]=0
+
             norm_factor = torch.sum(out, dim=1).unsqueeze(1)
             out = out / norm_factor
+            # out has shape Bx[a_chunk_Ch1_1, a_chunk_Ch2_1, a_chunk_Ch1_2, a_chunk_Ch2_2, ...]
 
             mel_apnd = []
             for i in range(frame.size(0)):

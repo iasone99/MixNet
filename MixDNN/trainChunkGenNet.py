@@ -7,6 +7,7 @@ import mixCNNCh2, chunkNet, chunkGenNet
 plt.rcParams['axes.grid'] = True
 import mixDNN
 import random
+import shiftMel
 
 from TTS.api import TTS
 from tensorboardX import SummaryWriter
@@ -189,10 +190,12 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
         num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
     """
 
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
+
+    melspec_tts=shiftMel.shiftMel(melspec_tts.unsqueeze(1),2,20).squeeze(1)
 
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
@@ -202,7 +205,7 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
         num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
     """
 
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]
@@ -342,10 +345,12 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
         num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
     """
 
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
+
+    melspec_tts=shiftMel.shiftMel(melspec_tts.unsqueeze(1),2,20).squeeze(1)
 
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
@@ -355,7 +360,7 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
         num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
     """
 
-    mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]

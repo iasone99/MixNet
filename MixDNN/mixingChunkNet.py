@@ -1,7 +1,8 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import DataLoader
-import create_chunks, mixLoss, mixCNNCh2
+import create_chunks, mixLoss, chunkNet
+import shiftMel
 from dnsmos import DNSMOS
 import random
 from TTS.api import TTS
@@ -107,49 +108,19 @@ def main():
 
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
-    num_chunks = int(2 * num_frames / chunk_size)
-    model = mixCNN.MixCNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size),
-                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+    num_chunks_per_process = hp.num_chunks_per_process
+    model = chunkNet.ChunkNet(num_chunks_per_process * hp.chunk_size * 2 * hp.num_mels, hp.layers_DNN,
+                              hp.hidden_size_DNN, 2 * num_chunks_per_process,
+                              num_chunks_per_process).to(
+        hp.device)
 
     # load model
-    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixCNNCh2Loss2", 100))
+    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("ChunkNetBig", 64))
     model.load_state_dict(state_dict['model'])
     model = model.to(hp.device)
     model.eval()
     # TTS
     tts = TTS(model_name="tts_models/multilingual/multi-dataset/your_tts", progress_bar=False, gpu=False)
-
-    # store the metrics for later averaging
-    SNRs_joint_griffin_to_target = []
-    SNRs_joint_griffin_to_target_griffin = []
-    SNRs_tts_griffin_to_target = []
-    SNRs_tts_griffin_to_target_griffin = []
-    SNR_tts_no_griffin_to_target = []
-    SNR_noisy_griffin_to_target_griffin = []
-    SNR_noisy_griffin_to_target = []
-    SNR_noisy_to_target = []
-
-    mel_tts_loss = []
-    mel_model_loss = []
-    mel_noise_loss = []
-
-    mel_tts_sisnr = []
-    mel_model_sisnr = []
-    mel_noise_sisnr = []
-
-    DNS_joint_griffin = []
-    DNS_tts_griffin = []
-    DNS_tts = []
-    DNS_noisy = []
-    DNS_noisy_griffin = []
-    DNS_clean = []
-    DNS_clean_griffin = []
-
-    # MSE loss as evaluation metric
-    loss = torch.nn.MSELoss()
 
     for i, data in enumerate(data_loader):
 
@@ -160,6 +131,7 @@ def main():
         wav, in_sr = librosa.load(file_path)
         wav = torch.from_numpy(wav)
         wav = torchaudio.functional.resample(wav, in_sr, hp.sr, lowpass_filter_width=6)
+        write("./samples/clean" + str(i) + ".wav", hp.sr, wav.numpy())
 
         SAMPLE_NOISE = download_asset("tutorial-assets/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo-8000hz.wav")
         noise, _ = torchaudio.load(SAMPLE_NOISE)
@@ -183,6 +155,8 @@ def main():
         snr_dbs = torch.tensor([0])
 
         waveform_noise = torchaudio.functional.add_noise(waveform=wav.unsqueeze(0), noise=noise_add, snr=snr_dbs)
+        torchaudio.save(filepath="./samples/noisy_audio" + str(i) + ".wav", src=waveform_noise,
+                        sample_rate=hp.sr)
         ######### TTS begin
         words = text.split()
         random.randint(0, len(dictionary) - 1)
@@ -205,6 +179,7 @@ def main():
         wav_tts = tts.tts(text, speaker_wav=embeds_path,
                           language="en")
         wav_tts = torch.FloatTensor(wav_tts)
+        write("./samples/tts" + str(i) + ".wav", hp.sr, wav_tts.numpy())
 
         ##################TTS end##################
 
@@ -217,15 +192,23 @@ def main():
         melspec_tts = mel_spectrogram(wav_tts.to(hp.device)).unsqueeze(0)
 
         # pad to obtain required DNN input size
-        melspec_tts = F.pad(melspec_tts, (
-            num_frames - melspec_tts.size(2), 0))  # zero pad to shape all inputs to one output
-        melspec_noise = F.pad(melspec_noise, (
-            num_frames - melspec_noise.size(2), 0))  # zero pad to shape all inputs to one output
+        pad_len_noise = melspec_noise.size(2)
+        pad_len_tts = melspec_tts.size(2)
+
+        mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+        melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
+        mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+        melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
+
+        pad_len_clean = melspec_target.size(2)
+        mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+        melspec_target = (torch.cat((mel_appnd, melspec_target), dim=2))
+
+        melspec_tts = shiftMel.shiftMel(melspec_tts.unsqueeze(1), 2, 20).squeeze(1)
 
         # concatenate tts and noisy melspec along the time domain
-        mel = torch.cat((melspec_tts, melspec_noise), 2)
-        mel = torch.permute(mel, (0, 2, 1))  # [1,T,F]
-        mel_target = mel_target.to(hp.device)
+        mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
+        mel = torch.permute(mel, (0, 1, 3, 2))  # [1,C,T,F]
         melspec_noise = melspec_noise.to(hp.device)
         melspec_tts = melspec_tts.to(hp.device)
 
@@ -234,17 +217,10 @@ def main():
 
         with t.no_grad():
             mel_pred = model(mel)  # forward pass
-            mel_pred = mel_pred.permute(0, 2, 1)
-            mel = mel.permute(0, 2, 1)
-            mel_target = mel_target.permute(0, 2, 1)
 
-            non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
-            mel_pred = torch.permute(mel_pred, (0, 2, 1))
-            mel_pred[~non_empty_mask, :] = 0
-            mel_pred = torch.permute(mel_pred, (0, 2, 1))
-
-            # zero columns are automatically mapped to zero
-            non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
+            # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
+            #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
+            non_empty_mask = (mel[:, 1,:, :]+torch.ones_like(mel[:, 1, :, :])).abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred = mel_pred[non_empty_mask, :].unsqueeze(0)
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -258,14 +234,12 @@ def main():
         melspec_noise = melspec_noise[non_empty_mask, :].unsqueeze(0)
         melspec_noise = torch.permute(melspec_noise, (0, 2, 1))  # [B,F,T]
 
-        # append the loss values
-        mel_tts_loss.append(loss(melspec_target, melspec_tts).unsqueeze(0))
-        mel_model_loss.append(loss(melspec_target, mel_pred).unsqueeze(0))
-        mel_noise_loss.append((loss(melspec_target, melspec_noise)).unsqueeze(0))
+        melspec_target = torch.permute(melspec_target, (0, 2, 1))
+        melspec_target = melspec_target[non_empty_mask, :].unsqueeze(0)
+        melspec_target = torch.permute(melspec_target, (0, 2, 1))  # [B,F,T]
 
-        mel_tts_sisnr.append(mel_si_snr(melspec_target.squeeze(0), melspec_tts.squeeze(0)).unsqueeze(0))
-        mel_model_sisnr.append(mel_si_snr(melspec_target.squeeze(0), mel_pred.squeeze(0)).unsqueeze(0))
-        mel_noise_sisnr.append((mel_si_snr(melspec_target.squeeze(0), melspec_noise.squeeze(0))).unsqueeze(0))
+        # plot results
+        plot_mel(mel.permute(0, 1, 3, 2), mel_pred, melspec_target,i)
 
         # reshape for vocoder
         mel_pred = mel_pred.squeeze(0)
@@ -283,24 +257,12 @@ def main():
         inv_spec = inv_mel_spectrogram((melspec_noise.squeeze(0)).cpu())
         wav_noisy_griffin = griffin_lim(inv_spec)
 
-        SNRs_joint_griffin_to_target.append(si_snr(wav, torch.from_numpy(strech_signal(wav, wav_model.numpy()))))
-        SNRs_joint_griffin_to_target_griffin.append(si_snr(wav_griffin.squeeze(0), wav_model))
-        SNRs_tts_griffin_to_target.append(
-            si_snr(wav, torch.from_numpy(strech_signal(wav, wav_tts_griffin.squeeze(0).numpy()))))
-        SNRs_tts_griffin_to_target_griffin.append(si_snr(wav_griffin.squeeze(0), wav_tts_griffin.squeeze(0)))
-        SNR_tts_no_griffin_to_target.append(si_snr(wav, wav_tts))
-        SNR_noisy_griffin_to_target_griffin.append(si_snr(wav_griffin.squeeze(0), wav_noisy_griffin.squeeze(0)))
-        SNR_noisy_griffin_to_target.append(
-            si_snr(wav, torch.from_numpy(strech_signal(wav, wav_noisy_griffin.squeeze(0).numpy()))))
-        SNR_noisy_to_target.append(si_snr(wav, waveform_noise))
+        write("./samples/test" + str(i) + ".wav", hp.sr, wav_model.numpy())
+        torchaudio.save(filepath="./samples/griffin_clean" + str(i) + ".wav", src=wav_griffin.unsqueeze(0),
+                        sample_rate=hp.sr)
 
-        DNS_joint_griffin.append(torch.from_numpy(dnsmos(wav_model.numpy())).unsqueeze(1))
-        DNS_tts.append(torch.from_numpy(dnsmos(wav_tts.numpy())).unsqueeze(1))
-        DNS_tts_griffin.append(torch.from_numpy(dnsmos(wav_tts_griffin.squeeze(0).numpy())).unsqueeze(1))
-        DNS_noisy_griffin.append(torch.from_numpy(dnsmos(wav_noisy_griffin.squeeze(0).numpy())).unsqueeze(1))
-        DNS_noisy.append(torch.from_numpy(dnsmos(waveform_noise.squeeze(0).numpy())).unsqueeze(1))
-        DNS_clean.append(torch.from_numpy(dnsmos(wav.numpy())).unsqueeze(1))
-        DNS_clean_griffin.append(torch.from_numpy(dnsmos(wav_griffin.squeeze(0).numpy())).unsqueeze(1))
+        torchaudio.save(filepath="./samples/griffin_tts" + str(i) + ".wav", src=wav_tts_griffin.unsqueeze(0),
+                        sample_rate=hp.sr)
 
         SNR_before = si_snr(wav_griffin.squeeze(0), wav_tts_griffin.squeeze(0))
         SNR_after = si_snr(wav_griffin.squeeze(0), wav_model)
@@ -308,35 +270,6 @@ def main():
         quality_before = dnsmos(wav_tts.numpy())
         quality_lstm = dnsmos(wav_model.numpy())
         print("MOS_after: " + str(quality_lstm) + " vs MOS_before: " + str(quality_before))
-
-    #### Print results
-
-    print("SI-SNR joint griffin to target: " + str(torch.mean(torch.stack(SNRs_joint_griffin_to_target))))
-    print(
-        "SI-SNR joint griffin to target griffin: " + str(torch.mean(torch.stack(SNRs_joint_griffin_to_target_griffin))))
-    print("SI-SNR tts griffin to target: " + str(torch.mean(torch.stack(SNRs_tts_griffin_to_target))))
-    print("SI-SNR tts griffin to target griffin: " + str(torch.mean(torch.stack(SNRs_tts_griffin_to_target_griffin))))
-    print("SI-SNR tts to target: " + str(torch.mean(torch.stack(SNR_tts_no_griffin_to_target))))
-    print(
-        "SI-SNR noisy griffin to target griffin: " + str(torch.mean(torch.stack(SNR_noisy_griffin_to_target_griffin))))
-    print("SI-SNR noisy griffin to target: " + str(torch.mean(torch.stack(SNR_noisy_griffin_to_target))))
-    print("SI-SNR noisy to target: " + str(torch.mean(torch.stack(SNR_noisy_to_target))))
-
-    print("MOS joint griffin: " + str(torch.mean(torch.cat(DNS_joint_griffin, dim=1), dim=1)))
-    print("MOS tts: " + str(torch.mean(torch.cat(DNS_tts, dim=1), dim=1)))
-    print("MOS tts griffin: " + str(torch.mean(torch.cat(DNS_tts_griffin, dim=1), dim=1)))
-    print("MOS noisy griffin: " + str(torch.mean(torch.cat(DNS_noisy_griffin, dim=1), dim=1)))
-    print("MOS noisy: " + str(torch.mean(torch.cat(DNS_noisy, dim=1), dim=1)))
-    print("MOS clean griffin: " + str(torch.mean(torch.cat(DNS_clean_griffin, dim=1), dim=1)))
-    print("MOS clean: " + str(torch.mean(torch.cat(DNS_clean, dim=1), dim=1)))
-
-    print("Mel Model loss: " + str(torch.mean(torch.cat(mel_model_loss, dim=0))))
-    print("Mel Noise loss: " + str(torch.mean(torch.cat(mel_noise_loss, dim=0))))
-    print("Mel TTS loss: " + str(torch.mean(torch.cat(mel_tts_loss, dim=0))))
-
-    print("Mel Model sisnr: " + str(torch.mean(torch.cat(mel_model_sisnr, dim=0))))
-    print("Mel Noise sisnr: " + str(torch.mean(torch.cat(mel_noise_sisnr, dim=0))))
-    print("Mel TTS sisnr: " + str(torch.mean(torch.cat(mel_tts_sisnr, dim=0))))
 
 
 def si_snr(target: Union[torch.tensor, np.ndarray],
@@ -438,6 +371,42 @@ def strech_signal(reference, input):
     out = librosa.effects.time_stretch(y=input, rate=factor)
     return out
 
+def plot_mel(mel, mel_pred, mel_target,k):
+    """
+    This function plots the three mel spectrograms of shape [1,features,frames]
+    mel: the imput mel spectrogram with both synthetic and noisy speech joined together (has 2*num_frames size)
+    mel_pred: The predicted mel spec from the model
+    mel_target: The target mel
+    """
+    fig, axs = plt.subplots(4)
+    axs[0].set_title('Mel_TTS')
+    axs[0].set_ylabel('mel freq')
+    axs[0].set_xlabel('frame')
+    im = axs[0].imshow(librosa.power_to_db(mel[0, 0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[0])
+    axs[1].set_title('Mel_Noisy')
+    axs[1].set_ylabel('mel freq')
+    axs[1].set_xlabel('frame')
+    im = axs[1].imshow(librosa.power_to_db(mel[0, 1, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[1])
+    axs[2].set_title('Mel_pred')
+    axs[2].set_ylabel('mel freq')
+    axs[2].set_xlabel('frame')
+    im = axs[2].imshow(librosa.power_to_db(mel_pred.detach()[0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[2])
+    axs[3].set_title('Mel_clean')
+    axs[3].set_ylabel('mel freq')
+    axs[3].set_xlabel('frame')
+    im = axs[3].imshow(librosa.power_to_db(mel_target.detach()[0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[3])
+    fig.tight_layout(pad=0.5)
+    fig.set_size_inches(18.5, 10.5, forward=True)
+    plt.savefig('melChunkNo'+str(k)+'.svg')
+    matplotlib.pyplot.close()
 
 if __name__ == '__main__':
     main()

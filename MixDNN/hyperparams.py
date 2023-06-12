@@ -19,10 +19,11 @@ layers_DNN = 5
 hidden_size_DNN = 2048
 num_frames = 800
 chunk_size = 20
-num_chunks_per_process = 4
+num_chunks_per_process = 4 #4
 gradient_accumulations = 1  # 5
 weight_decay = 0.0
 learning_rate_decay_interval = 10  # decay for every 100 epochs
 learning_rate_decay_rate = 0.7  # lr = lr * rate #0.999
 device = 'cpu'
 cleaners = 'english_cleaners'
+pad_value=0

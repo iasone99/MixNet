@@ -17,8 +17,8 @@ class ChunkGenNet(nn.Module):
         self.num_chunks_per_process = num_chunks_per_process
 
         self.norm = nn.BatchNorm1d(hidden_size)
-        #self.linear_in = nn.Linear(768, hidden_size)
-        self.linear_in = nn.Linear(2*64 * hp.chunk_size * hp.num_chunks_per_process, hidden_size)
+        self.linear_in = nn.Linear(768, hidden_size)
+        #self.linear_in = nn.Linear(2*64 * hp.chunk_size * hp.num_chunks_per_process, hidden_size)
         self.linear_h = nn.Linear(hidden_size, hidden_size)
         self.act = nn.ReLU()
         # The linear layer that maps from hidden state space to mel
