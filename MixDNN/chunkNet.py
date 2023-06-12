@@ -5,7 +5,9 @@ import hyperparams as hp
 
 
 class ChunkNet(nn.Module):
-
+    """
+    This model predicts the mask applied to the surrounding chunks of each chunk.
+    """
     def __init__(self, input_len, num_layers, hidden_size, output_len, num_chunks_per_process):
         super(ChunkNet, self).__init__()
         self.hidden_size = hidden_size
