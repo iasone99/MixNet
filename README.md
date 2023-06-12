@@ -1,6 +1,6 @@
 # MixNet
 
-This is a PyTorch implementation of MixNet
+This is a PyTorch implementation of [Name](link.pdf). The corresponding paper is located in the repository.
 
 # Train on your data
 In order to train the model on your data, follow the steps below 
