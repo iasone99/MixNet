@@ -22,7 +22,6 @@ source env/bin/activate
 * install the required dependencies
 ```bash
 pip install -r requirements.txt
-```bash
 
 ### 3. Training 
 * update the args (for the dataloader) and hyperparams (for the model) file if needed
