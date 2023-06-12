@@ -24,9 +24,9 @@ source env/bin/activate
 pip install -r requirements.txt
 
 ### 3. Training 
-* update the args (for the dataloader) and hyperparams (for the model) file if needed
-* train the model 
+update the args (for the dataloader) and hyperparams (for the model) file if needed
+train the model 
 
 ### 4. Evaluating
-* update the args (for the dataloader): set batch size to 1
-* run eval_.py
+update the args (for the dataloader): set batch size to 1
+run eval_.py
