@@ -24,6 +24,8 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 # 3. Training 
+* args does pass the data loader arguments to the dataloader (batch size and the paths where the training_data.txt files are stored)
+* hyperparams stores the arguments for training the model and the model itself (number of layers, learning rate, number of neurons, chunk size, number of chunks, etc.).
 * update the args (for the dataloader) and hyperparams (for the model) file if needed
 * train the model 
 
