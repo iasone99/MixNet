@@ -62,10 +62,10 @@ def add_model_args(parser):
 def add_training_args(parser):
     group = parser.add_argument_group('Training')
     group.add_argument(
-        '--train_path', type=str, default='train_data.txt'
+        '--train_path', type=str, default='train_data_all.txt'
     )
     group.add_argument(
-        '--test_path', type=str, default='test_data5.txt'
+        '--test_path', type=str, default='test_data.txt'
     )
     group.add_argument(
         '--predict_path', type=str, default='predict_data.txt'
@@ -83,7 +83,7 @@ def add_training_args(parser):
         '--epochs', type=int, default=10
     )
     group.add_argument(
-        '--batch_size', type=int, default=2
+        '--batch_size', type=int, default=32
     )
     group.add_argument(
         '--opt_eps', type=float, default=1e-9

@@ -9,8 +9,8 @@ import torchaudio.transforms as T
 import numpy as np
 from typing import Union
 
-from MixDNN import create_chunks
-from MixDNN.compSparsity import compSparsity
+import create_chunks
+from compSparsity import compSparsity
 
 
 class MixLossSlice(nn.Module):
@@ -55,7 +55,7 @@ class MixLoss(nn.Module):
         for idx, chunk in enumerate(output_split):
             reg_chunk = reg_chunk + criterion(output_split[idx], noise_split[idx]) * criterion(tts_split[idx], noise_split[idx])
 
-        return 0.5*loss + reg_chunk + reg
+        return 0.5*loss + reg_chunk + 2*reg
 
 
 class MixLoss3(nn.Module):

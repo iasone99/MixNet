@@ -15,7 +15,8 @@ class ChunkGenNet(nn.Module):
         self.num_chunks_per_process = num_chunks_per_process
 
         self.norm = nn.BatchNorm1d(hidden_size)
-        self.linear_in = nn.Linear(768, hidden_size)
+        #self.linear_in = nn.Linear(768, hidden_size)
+        self.linear_in = nn.Linear(2*64 * hp.chunk_size * hp.num_chunks_per_process, hidden_size)
         self.linear_h = nn.Linear(hidden_size, hidden_size)
         self.act = nn.ReLU()
         # The linear layer that maps from hidden state space to mel
@@ -76,10 +77,12 @@ class ChunkGenNet(nn.Module):
                     list.append(mel_split[idx + i + 1 - int(self.num_chunks_per_process / 2)])
                 frame = torch.cat(list, dim=1)  # [B,2*C,num_chunks,T]
 
-            x1 = self.pooling22(self.act2(self.bn1(self.conv1(frame))))
-            x2 = self.pooling22(self.act2(self.bn2(self.conv2(x1))))
-            x3 = self.act2(self.bn3(self.conv3(x2)))
-            frame_flat = x3.view(-1, 768)
+            #x1 = self.pooling22(self.act2(self.bn1(self.conv1(frame))))
+            #x2 = self.pooling22(self.act2(self.bn2(self.conv2(x1))))
+            #x3 = self.act2(self.bn3(self.conv3(x2)))
+            #frame_flat = x3.view(-1, 768)
+            frame_flat = frame.view(-1, 2*64*hp.chunk_size*hp.num_chunks_per_process)
+
             x = self.linear_in(frame_flat)
             x = self.norm(x)
             x = self.act(x)

@@ -114,7 +114,7 @@ def main():
         hp.device)
 
     # load model
-    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1BIG", 48))
+    state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("ChunkNetBig", 64))
     model.load_state_dict(state_dict['model'])
     model = model.to(hp.device)
     model.eval()
