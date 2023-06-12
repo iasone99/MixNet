@@ -9,7 +9,7 @@ In order to train the model on your data, follow the steps below
 ```
 speaker reference audio path,audio path,text,duration
 path/speaker_reference.wav|path/clean_audio_sample.wav|the text in that file|3.2 
-
+```
 # 2. Setup development environment
 * create enviroment 
 ```bash
