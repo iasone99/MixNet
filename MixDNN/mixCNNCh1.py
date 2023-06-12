@@ -4,12 +4,12 @@ import torch.nn.functional as F
 import hyperparams as hp
 import create_chunks
 
-class MixCNN2(nn.Module):
+class MixCNNCh1(nn.Module):
     """
     This is the CNN that predicts a mask with one channel of the input mel image
     """
     def __init__(self, input_len, hidden_size, num_layers, output_len, num_chunks_in, num_chunks_out):
-        super(MixCNN2, self).__init__()
+        super(MixCNNCh1, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.input_len = input_len

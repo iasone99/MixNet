@@ -10,7 +10,7 @@ import numpy as np
 from typing import Union
 
 import create_chunks
-from compSparsity import compSparsity
+from MixDNN.temp.compSparsity import compSparsity
 
 
 class MixLossSlice(nn.Module):

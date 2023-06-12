@@ -2,7 +2,7 @@ import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNN, chunkNet, chunkGenNet
+import mixCNNCh2, chunkNet, chunkGenNet
 
 plt.rcParams['axes.grid'] = True
 import mixDNN

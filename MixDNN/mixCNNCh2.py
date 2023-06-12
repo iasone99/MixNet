@@ -4,12 +4,12 @@ import torch.nn.functional as F
 import hyperparams as hp
 
 
-class MixCNN(nn.Module):
+class MixCNNCh2(nn.Module):
     """
     This is the CNN that predicts the mask from a two channel image of the mel spec
     """
     def __init__(self, input_len, hidden_size, num_layers, output_len, num_chunks_in, num_chunks_out):
-        super(MixCNN, self).__init__()
+        super(MixCNNCh2, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.input_len = input_len

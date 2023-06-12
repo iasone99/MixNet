@@ -2,7 +2,7 @@ import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNN, mixCNN2
+import mixCNNCh2, mixCNNCh1
 
 plt.rcParams['axes.grid'] = True
 import mixDNN
@@ -256,7 +256,7 @@ def main():
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
-    model = mixCNN.MixCNN(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
+    model = mixCNNCh1.MixCNNCh1(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
                           input_len=2 * hp.num_frames * hp.num_mels,
                           output_len=int(num_frames / chunk_size) * num_chunks,
                           num_chunks_in=int(2 * num_frames / chunk_size),
