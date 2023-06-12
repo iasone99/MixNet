@@ -1,7 +1,7 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import DataLoader
-from MixDNN import create_chunks, mixCNN
+import create_chunks, mixCNN
 from dnsmos import DNSMOS
 import random
 from TTS.api import TTS

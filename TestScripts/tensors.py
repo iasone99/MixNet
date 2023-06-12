@@ -1,8 +1,8 @@
 import torch
 import torchaudio.transforms as T
-import MixDNN.hyperparams as hp
+import network.hyperparams as hp
 from dnsmos import DNSMOS
-import MixDNN
+import network
 import numpy as np
 from typing import Union
 #a=torch.rand(2,3,5)

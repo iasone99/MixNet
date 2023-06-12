@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import hyperparams as hp
-from MixDNN import create_chunks
+import create_chunks
 
 class MixCNN2(nn.Module):
     """

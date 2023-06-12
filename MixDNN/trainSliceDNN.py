@@ -2,7 +2,7 @@ import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-from MixDNN import mixCNN, sliceDNN
+import sliceDNN
 
 plt.rcParams['axes.grid'] = True
 import mixDNN

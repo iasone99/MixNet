@@ -2,7 +2,7 @@ import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-from MixDNN import mixCNN, chunkNet, chunkGenNet
+import mixCNN, chunkNet, chunkGenNet
 
 plt.rcParams['axes.grid'] = True
 import mixDNN
@@ -443,9 +443,9 @@ def main():
     global_step = 0
     for epoch in range(hp.epochs):
         # the accumulated training and testing losses over one epoch
-        if epoch > 0:
-            train_losses.append(train_loss)
-            test_losses.append(test_loss)
+        #if epoch > 0:
+        #    train_losses.append(train_loss)
+        #    test_losses.append(test_loss)
         pbar = tqdm(data_loader)
         train_loss = 0
         test_loss = 0
@@ -506,10 +506,13 @@ def main():
             # optimizer.step()
 
             # for tracing the loss
-            train_loss = train_loss + loss.item()
+            #train_loss = train_loss + loss.item()
 
             # testing
-            # test_loss = test_loss + test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts)
+            #test_loss = test_loss + test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts)
+
+            train_losses.append(loss.item())
+            test_losses.append(test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts))
 
             save_step = global_step + epoch_start
             if global_step % hp.save_step == 0:
