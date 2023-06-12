@@ -1,0 +1,36 @@
+# MixNet
+
+This is a PyTorch implementation of [Name](link.pdf). The corresponding paper is located in the repository. The dataloader and MultiSpeech TTS model was taken from [msalhab96
+/MultiSpeech](https://github.com/msalhab96/MultiSpeech) but must be  further trained. The TTS used for training MixNet is [coqui-ai/TTS](https://github.com/coqui-ai/tts).
+
+
+# Train on your data
+In order to train the model on your data, follow the steps below 
+# 1. data preprocessing 
+* prepare your data and make sure the data is formatted in an PSV format as below without the header
+```
+speaker reference audio path,audio path,text,duration
+path/speaker_reference.wav|path/clean_audio_sample.wav|the text in that file|3.2 
+```
+# 2. Setup development environment
+* create enviroment 
+```bash
+python -m venv env
+```
+* activate the enviroment
+```bash
+source env/bin/activate
+```
+* install the required dependencies
+```bash
+pip install -r requirements.txt
+```
+# 3. Training 
+* args does pass the data loader arguments to the dataloader (batch size and the paths where the training_data.txt files are stored)
+* hyperparams stores the arguments for training the model and the model itself (number of layers, learning rate, number of neurons, chunk size, number of chunks, etc.).
+* update the args (for the dataloader) and hyperparams (for the model) file if needed
+* train the model 
+
+# 4. Evaluating
+* update the args (for the dataloader): set batch size to 1
+* run eval<model_name>.py
