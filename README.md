@@ -1,6 +1,8 @@
 # MixNet
 
-This is a PyTorch implementation of [Name](link.pdf). The corresponding paper is located in the repository.
+This is a PyTorch implementation of [Name](link.pdf). The corresponding paper is located in the repository. The dataloader and MultiSpeech TTS model was taken from [msalhab96
+/MultiSpeech](https://github.com/msalhab96/MultiSpeech) but must be  further trained. The TTS used for training MixNet is [coqui-ai/TTS](https://github.com/coqui-ai/tts).
+
 
 # Train on your data
 In order to train the model on your data, follow the steps below 
