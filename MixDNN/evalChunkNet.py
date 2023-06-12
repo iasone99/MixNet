@@ -270,7 +270,7 @@ def main():
         mel_noise_sisnr.append((mel_si_snr(melspec_target.squeeze(0), melspec_noise.squeeze(0))).unsqueeze(0))
 
         # plot results
-        plot_mel(mel.permute(0, 1, 3, 2), mel_pred.permute(0, 2, 1), melspec_target.permute(0, 2, 1),i)
+        plot_mel(mel.permute(0, 1, 3, 2), mel_pred, melspec_target,i)
 
         # reshape for vocoder
         mel_pred = mel_pred.squeeze(0)
