@@ -1,7 +1,7 @@
 import matplotlib
 from matplotlib import pyplot as plt
 import DataLoader
-from network import create_chunks, mixLoss, mixCNN, chunkNet
+import create_chunks, mixLoss, chunkNet
 from dnsmos import DNSMOS
 import random
 from TTS.api import TTS
@@ -219,18 +219,14 @@ def main():
         pad_len_noise = melspec_noise.size(2)
         pad_len_tts = melspec_tts.size(2)
 
-        melspec_noise = F.pad(melspec_noise, (
-            num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
-        melspec_tts = F.pad(melspec_tts, (
-            num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
-
-        melspec_tts[:, :, :pad_len_tts] = -1
-        melspec_noise[:, :, :pad_len_noise] = -1
+        mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+        melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
+        mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+        melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
 
         pad_len_clean = melspec_target.size(2)
-        melspec_target = F.pad(melspec_target, (
-            num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
-        melspec_target[:, :, :pad_len_clean] = -1
+        mel_appnd = -torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+        melspec_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
         # concatenate tts and noisy melspec along the time domain
         mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
@@ -272,6 +268,9 @@ def main():
         mel_tts_sisnr.append(mel_si_snr(melspec_target.squeeze(0), melspec_tts.squeeze(0)).unsqueeze(0))
         mel_model_sisnr.append(mel_si_snr(melspec_target.squeeze(0), mel_pred.squeeze(0)).unsqueeze(0))
         mel_noise_sisnr.append((mel_si_snr(melspec_target.squeeze(0), melspec_noise.squeeze(0))).unsqueeze(0))
+
+        # plot results
+        plot_mel(mel.permute(0, 1, 3, 2), mel_pred.permute(0, 2, 1), melspec_target.permute(0, 2, 1),i)
 
         # reshape for vocoder
         mel_pred = mel_pred.squeeze(0)
@@ -444,6 +443,42 @@ def strech_signal(reference, input):
     out = librosa.effects.time_stretch(y=input, rate=factor)
     return out
 
+def plot_mel(mel, mel_pred, mel_target,k):
+    """
+    This function plots the three mel spectrograms of shape [1,features,frames]
+    mel: the imput mel spectrogram with both synthetic and noisy speech joined together (has 2*num_frames size)
+    mel_pred: The predicted mel spec from the model
+    mel_target: The target mel
+    """
+    fig, axs = plt.subplots(4)
+    axs[0].set_title('Mel_TTS')
+    axs[0].set_ylabel('mel freq')
+    axs[0].set_xlabel('frame')
+    im = axs[0].imshow(librosa.power_to_db(mel[0, 0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[0])
+    axs[1].set_title('Mel_Noisy')
+    axs[1].set_ylabel('mel freq')
+    axs[1].set_xlabel('frame')
+    im = axs[1].imshow(librosa.power_to_db(mel[0, 1, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[1])
+    axs[2].set_title('Mel_pred')
+    axs[2].set_ylabel('mel freq')
+    axs[2].set_xlabel('frame')
+    im = axs[2].imshow(librosa.power_to_db(mel_pred.detach()[0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[2])
+    axs[3].set_title('Mel_clean')
+    axs[3].set_ylabel('mel freq')
+    axs[3].set_xlabel('frame')
+    im = axs[3].imshow(librosa.power_to_db(mel_target.detach()[0, :, :].cpu().squeeze(0)), origin='lower',
+                       aspect='auto')
+    fig.colorbar(im, ax=axs[3])
+    fig.tight_layout(pad=0.5)
+    fig.set_size_inches(18.5, 10.5, forward=True)
+    plt.savefig('melChunkNo'+str(k)+'.svg')
+    matplotlib.pyplot.close()
 
 if __name__ == '__main__':
     main()
