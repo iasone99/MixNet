@@ -1,7 +1,6 @@
 import matplotlib
 from matplotlib import pyplot as plt
-import DataLoader
-import create_chunks, mixLoss, chunkNet
+import chunkNet
 import shiftMel
 from dnsmos import DNSMOS
 import random
@@ -18,9 +17,7 @@ from DataLoader.padder import get_padders
 from DataLoader.pipelines import get_pipelines
 from DataLoader.tokenizer import CharTokenizer
 from typing import Union
-import torch.nn.functional as F
 import torchaudio.functional
-import mixDNN
 import numpy as np
 import hyperparams as hp
 from torchaudio.utils import download_asset
@@ -122,17 +119,19 @@ def main():
     # TTS
     tts = TTS(model_name="tts_models/multilingual/multi-dataset/your_tts", progress_bar=False, gpu=False)
 
-    for i, data in enumerate(data_loader):
+    for i, data in enumerate(data_loader): # for every sample in the test set
 
+        # extract the data
         embeds_path, file_path, text = data
         file_path = " ".join([x for x in file_path])
         embeds_path = " ".join([x for x in embeds_path])
         text = " ".join([x for x in text])
+        # load the audio
         wav, in_sr = librosa.load(file_path)
         wav = torch.from_numpy(wav)
         wav = torchaudio.functional.resample(wav, in_sr, hp.sr, lowpass_filter_width=6)
         write("./samples/clean" + str(i) + ".wav", hp.sr, wav.numpy())
-
+        # add noise
         SAMPLE_NOISE = download_asset("tutorial-assets/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo-8000hz.wav")
         noise, _ = torchaudio.load(SAMPLE_NOISE)
         noise = torch.cat((
@@ -153,7 +152,7 @@ def main():
             noise, noise, noise, noise, noise, noise, noise), 1)
         noise_add = noise[:, : wav.shape[0]]
         snr_dbs = torch.tensor([0])
-
+        # add the noise and save the audio
         waveform_noise = torchaudio.functional.add_noise(waveform=wav.unsqueeze(0), noise=noise_add, snr=snr_dbs)
         torchaudio.save(filepath="./samples/noisy_audio" + str(i) + ".wav", src=waveform_noise,
                         sample_rate=hp.sr)
@@ -176,11 +175,11 @@ def main():
         text = ' '.join(words)
         """
 
+        #synthesize and save
         wav_tts = tts.tts(text, speaker_wav=embeds_path,
                           language="en")
         wav_tts = torch.FloatTensor(wav_tts)
         write("./samples/tts" + str(i) + ".wav", hp.sr, wav_tts.numpy())
-
         ##################TTS end##################
 
         # ALIGN THE WAVEFORMS
@@ -219,8 +218,7 @@ def main():
             mel_pred = model(mel)  # forward pass
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-            #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
-            non_empty_mask = (mel[:, 1,:, :]+torch.ones_like(mel[:, 1, :, :])).abs().sum(dim=2).bool()
+            non_empty_mask = (mel[:, 1,:, :]+(-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])).abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred = mel_pred[non_empty_mask, :].unsqueeze(0)
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -257,6 +255,7 @@ def main():
         inv_spec = inv_mel_spectrogram((melspec_noise.squeeze(0)).cpu())
         wav_noisy_griffin = griffin_lim(inv_spec)
 
+        # save the audios
         write("./samples/test" + str(i) + ".wav", hp.sr, wav_model.numpy())
         torchaudio.save(filepath="./samples/griffin_clean" + str(i) + ".wav", src=wav_griffin.unsqueeze(0),
                         sample_rate=hp.sr)
@@ -316,8 +315,8 @@ def si_snr(target: Union[torch.tensor, np.ndarray],
 
 def mel_si_snr(target: Union[torch.tensor, np.ndarray],
                estimate: Union[torch.tensor, np.ndarray]) -> torch.tensor:
-    """Calculates SI-SNR estiamte from target audio and estiamte audio. The
-    audio sequene is expected to be a tensor/array of dimension more than 1.
+    """Calculates SI-SNR estiamte from target mel and estiamte mel. The
+    mel sequene is expected to be a tensor/array of dimension more than 1.
     The last dimension is interpreted as time.
     The implementation is based on the example here:
     https://www.tutorialexample.com/wp-content/uploads/2021/12/SI-SNR-definition.png

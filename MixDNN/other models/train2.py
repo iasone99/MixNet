@@ -1,15 +1,12 @@
-import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNNCh2, mixCNNCh1
+import mixCNNCh2
 
 plt.rcParams['axes.grid'] = True
-import mixDNN
 import random
 
 from TTS.api import TTS
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import mixLoss
 
@@ -185,14 +182,14 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
     melspec_tts = mel_spectrogram(wavs_tts.to(hp.device))
 
     melspec_noise = F.pad(melspec_noise, (
-        num_frames - melspec_noise.size(2), 0))  # zero pad to shape all inputs to one output
+        num_frames - melspec_noise.size(2), -1))  # zero pad to shape all inputs to one output
     melspec_tts = F.pad(melspec_tts, (
-        num_frames - melspec_tts.size(2), 0))  # zero pad to shape all inputs to one output
+        num_frames - melspec_tts.size(2), -1))  # zero pad to shape all inputs to one output
 
     mel = torch.cat((melspec_tts, melspec_noise), 2)
 
     mel_target = F.pad(melspec_target, (
-        num_frames - melspec_target.size(2), 0))  # zero pad to shape all inputs to one output
+        num_frames - melspec_target.size(2), -1))  # zero pad to shape all inputs to one output
 
     mel = torch.permute(mel, (0, 2, 1))  # [B,T,F]
     mel_target = torch.permute(mel_target, (0, 2, 1))  # [B,T,F]
@@ -256,11 +253,11 @@ def main():
     num_frames = hp.num_frames
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
-    model = mixCNNCh1.MixCNNCh1(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size),
-                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+    model = mixCNNCh2.MixCNNCh2(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
+                                input_len=2 * hp.num_frames * hp.num_mels,
+                                output_len=int(num_frames / chunk_size) * num_chunks,
+                                num_chunks_in=int(2 * num_frames / chunk_size),
+                                num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
     print("This model has " + str(sum(p.numel() for p in model.parameters() if p.requires_grad)) + " parameters")
     # loss
     loss_function = mixLoss.MixLoss()
@@ -318,7 +315,9 @@ def main():
                 mel_pred = create_chunks.join_chunks(mel, chunk_size, mask, int(num_frames / chunk_size))
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-            non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
+            #non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
+            non_empty_mask = (mel[:, :, num_frames:]+torch.ones_like(mel[:, :, num_frames:])).abs().sum(dim=1).bool()
+
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred[~non_empty_mask, :] = 0
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -360,7 +359,7 @@ def main():
             if global_step % hp.save_step == 0:
                 t.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict()},
-                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetLoss3_%d.pth.tar' % save_step))
+                       os.path.join(args.checkpoint_dir, 'checkpoint_CNNCh1Loss2_%d.pth.tar' % save_step))
 
             fig, axs = plt.subplots(3)
             fig.tight_layout(pad=0.5)
@@ -381,7 +380,7 @@ def main():
             axs[2].set_xlabel('Epoch #batches')
             plt.grid(True)
 
-            plt.savefig("loss_gradients.svg")
+            plt.savefig("loss_gradientsCh1.svg")
             matplotlib.pyplot.close()
             # -- Decay learning rate
 
@@ -484,7 +483,7 @@ def plot_mel(mel, mel_pred, mel_target):
     fig.colorbar(im, ax=axs[2])
     fig.tight_layout(pad=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('mel.svg')
+    plt.savefig('melCh1.svg')
     matplotlib.pyplot.close()
 
 

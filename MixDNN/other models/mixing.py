@@ -1,6 +1,5 @@
 import matplotlib
 from matplotlib import pyplot as plt
-import DataLoader
 import create_chunks, mixCNNCh2
 from dnsmos import DNSMOS
 import random
@@ -18,9 +17,7 @@ from DataLoader.padder import get_padders
 from DataLoader.pipelines import get_pipelines
 from DataLoader.tokenizer import CharTokenizer
 from typing import Union
-import torch.nn.functional as F
 import torchaudio.functional
-import mixDNN
 import numpy as np
 import hyperparams as hp
 from torchaudio.utils import download_asset
@@ -107,9 +104,9 @@ def main():
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
     model = mixCNNCh2.MixCNNCh2(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size), num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+                                input_len=2 * hp.num_frames * hp.num_mels,
+                                output_len=int(num_frames / chunk_size) * num_chunks,
+                                num_chunks_in=int(2 * num_frames / chunk_size), num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
 
     state_dict = t.load('./models/checkpoint_%s_%d.pth.tar' % ("MixNetLoss1", 100))
     model.load_state_dict(state_dict['model'])

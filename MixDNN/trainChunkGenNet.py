@@ -1,16 +1,13 @@
-import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNNCh2, chunkNet, chunkGenNet
+import chunkGenNet
 
 plt.rcParams['axes.grid'] = True
-import mixDNN
 import random
 import shiftMel
 
 from TTS.api import TTS
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import mixLoss
 
@@ -20,7 +17,6 @@ import torchaudio.transforms as T
 
 import librosa
 from typing import Optional
-import create_chunks
 
 from DataLoader.data import get_batch_loader
 from DataLoader.data_loaders import TextLoader
@@ -182,14 +178,6 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
 
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-
-    """
-    melspec_noise = F.pad(melspec_noise, (
-        num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
-    melspec_tts = F.pad(melspec_tts, (
-        num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
-    """
-
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
@@ -200,11 +188,6 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
     pad_len_clean = melspec_target.size(2)
-    """
-    mel_target = F.pad(melspec_target, (
-        num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
-    """
-
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
@@ -337,14 +320,6 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
 
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-
-    """
-    melspec_noise = F.pad(melspec_noise, (
-        num_frames - pad_len_noise, 0))  # zero pad to shape all inputs to one output
-    melspec_tts = F.pad(melspec_tts, (
-        num_frames - pad_len_tts, 0))  # zero pad to shape all inputs to one output
-    """
-
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
@@ -355,11 +330,6 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
     pad_len_clean = melspec_target.size(2)
-    """
-    mel_target = F.pad(melspec_target, (
-        num_frames - pad_len_clean, 0))  # zero pad to shape all inputs to one output
-    """
-
     mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
@@ -475,12 +445,10 @@ def main():
             mel_pred = model(mel)  # forward pass # [B,F,T]
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-            #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
-            mel_shift = mel[:, 1, :, :] + torch.ones_like(mel[:, 1, :, :])
+            mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
             non_empty_mask = mel_shift.abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
-            mel_pred[~non_empty_mask, :] = -1
-            # mel_pred[:, :pad_len_noise, :] = 0
+            mel_pred[~non_empty_mask, :] = hp.pad_value
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_target = mel_target.permute(0, 2, 1)
             mel = mel.permute(0, 1, 3, 2)
@@ -692,12 +660,10 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts):
         mel_pred = model(mel)  # forward pass
 
         # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-        # non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
-        mel_shift = mel[:, 1, :, :] + torch.ones_like(mel[:, 1, :, :])
+        mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
         non_empty_mask = mel_shift.abs().sum(dim=2).bool()
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
-        mel_pred[~non_empty_mask, :] = -1
-        # mel_pred[:, :pad_len_noise, :] = 0
+        mel_pred[~non_empty_mask, :] = hp.pad_value
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
         mel_target = mel_target.permute(0, 2, 1)
         mel = mel.permute(0, 1, 3, 2)

@@ -1,16 +1,13 @@
-import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNNCh2, chunkNet, chunkGenNet
+import chunkNet
 
 plt.rcParams['axes.grid'] = True
-import mixDNN
 import random
 import shiftMel
 
 from TTS.api import TTS
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import mixLoss
 
@@ -20,7 +17,6 @@ import torchaudio.transforms as T
 
 import librosa
 from typing import Optional
-import create_chunks
 
 from DataLoader.data import get_batch_loader
 from DataLoader.data_loaders import TextLoader
@@ -451,12 +447,10 @@ def main():
             mel_pred = model(mel)  # forward pass # [B,F,T]
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-            #non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
             mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
             non_empty_mask = mel_shift.abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred[~non_empty_mask, :] = hp.pad_value
-            # mel_pred[:, :pad_len_noise, :] = 0
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_target = mel_target.permute(0, 2, 1)
             mel = mel.permute(0, 1, 3, 2)
@@ -671,12 +665,10 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts):
         mel_pred = model(mel)  # forward pass
 
         # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
-        # non_empty_mask = mel[:, 1, :, :].abs().sum(dim=2).bool()
         mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
         non_empty_mask = mel_shift.abs().sum(dim=2).bool()
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
         mel_pred[~non_empty_mask, :] = hp.pad_value
-        # mel_pred[:, :pad_len_noise, :] = 0
         mel_pred = torch.permute(mel_pred, (0, 2, 1))
         mel_target = mel_target.permute(0, 2, 1)
         mel = mel.permute(0, 1, 3, 2)

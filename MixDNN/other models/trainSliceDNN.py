@@ -1,15 +1,12 @@
-import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
 import sliceDNN
 
 plt.rcParams['axes.grid'] = True
-import mixDNN
 import random
 
 from TTS.api import TTS
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import mixLoss
 
@@ -19,7 +16,6 @@ import torchaudio.transforms as T
 
 import librosa
 from typing import Optional
-import create_chunks
 
 from DataLoader.data import get_batch_loader
 from DataLoader.data_loaders import TextLoader

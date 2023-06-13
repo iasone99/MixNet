@@ -1,15 +1,12 @@
-import torch.nn as nn
 import matplotlib
 from matplotlib import pyplot as plt
 
-import mixCNNCh2, mixCNNCh1
+import mixCNNCh1
 
 plt.rcParams['axes.grid'] = True
-import mixDNN
 import random
 
 from TTS.api import TTS
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import mixLoss
 
@@ -88,7 +85,8 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
         wav, in_sr = librosa.load(file_path)
         wav = torch.from_numpy(wav).float()
         wav = torchaudio.functional.resample(wav, in_sr, hp.sr, lowpass_filter_width=6)
-        
+
+
         SAMPLE_NOISE = download_asset("tutorial-assets/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo-8000hz.wav")
         noise, _ = torchaudio.load(SAMPLE_NOISE)
         noise = torch.cat((
@@ -107,7 +105,6 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
             noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise,
             noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise, noise,
             noise, noise, noise, noise, noise, noise, noise), 1)
-        
         noise = torchaudio.functional.resample(noise, 8000, hp.sr, lowpass_filter_width=6)
         noise_add = noise[:, : wav.shape[0]]
         snr_dbs = torch.tensor([0])
@@ -257,10 +254,10 @@ def main():
     chunk_size = hp.chunk_size
     num_chunks = int(2 * num_frames / chunk_size)
     model = mixCNNCh1.MixCNNCh1(hidden_size=hp.hidden_size_DNN, num_layers=hp.layers_DNN,
-                          input_len=2 * hp.num_frames * hp.num_mels,
-                          output_len=int(num_frames / chunk_size) * num_chunks,
-                          num_chunks_in=int(2 * num_frames / chunk_size),
-                          num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
+                                input_len=2 * hp.num_frames * hp.num_mels,
+                                output_len=int(num_frames / chunk_size) * num_chunks,
+                                num_chunks_in=int(2 * num_frames / chunk_size),
+                                num_chunks_out=int(num_frames / chunk_size)).to(hp.device)
     print("This model has " + str(sum(p.numel() for p in model.parameters() if p.requires_grad)) + " parameters")
     # loss
     loss_function = mixLoss.MixLoss()
@@ -319,7 +316,6 @@ def main():
 
             # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
             non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
-            #non_empty_mask = (mel[:, :, num_frames:]+torch.ones_like(mel[:, :, num_frames:])).abs().sum(dim=1).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred[~non_empty_mask, :] = 0
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -361,7 +357,7 @@ def main():
             if global_step % hp.save_step == 0:
                 t.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict()},
-                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetLoss1BIG_%d.pth.tar' % save_step))
+                       os.path.join(args.checkpoint_dir, 'checkpoint_MixNetLoss3_%d.pth.tar' % save_step))
 
             fig, axs = plt.subplots(3)
             fig.tight_layout(pad=0.5)
@@ -382,7 +378,7 @@ def main():
             axs[2].set_xlabel('Epoch #batches')
             plt.grid(True)
 
-            plt.savefig("loss_gradientsBig.svg")
+            plt.savefig("loss_gradients.svg")
             matplotlib.pyplot.close()
             # -- Decay learning rate
 
@@ -485,7 +481,7 @@ def plot_mel(mel, mel_pred, mel_target):
     fig.colorbar(im, ax=axs[2])
     fig.tight_layout(pad=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('mel1.svg')
+    plt.savefig('mel.svg')
     matplotlib.pyplot.close()
 
 
