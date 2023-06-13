@@ -246,7 +246,7 @@ def main():
             else:  # the mask maps chunks of the mel->special function necessary
                 mel_pred = create_chunks.join_chunks(mel, chunk_size, mask, int(num_frames / chunk_size))
 
-            # zero columns are automatically mapped to zero
+            # padded columns are automatically mapped to zero
             non_empty_mask = mel[:, :, num_frames:].abs().sum(dim=1).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred = mel_pred[non_empty_mask, :].unsqueeze(0)

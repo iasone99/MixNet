@@ -446,7 +446,7 @@ def main():
 
             mel_pred = model(mel)  # forward pass # [B,F,T]
 
-            # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
+            # only consider the non-padded interval of the spec: padded columns are automatically mapped to zero
             mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
             non_empty_mask = mel_shift.abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
@@ -664,7 +664,7 @@ def test(model, test_loader, mel_spectrogram, num_frames, loss_function, tts):
 
         mel_pred = model(mel)  # forward pass
 
-        # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
+        # only consider the non-padded interval of the spec: padded columns are automatically mapped to zero
         mel_shift = mel[:, 1, :, :] + (-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])
         non_empty_mask = mel_shift.abs().sum(dim=2).bool()
         mel_pred = torch.permute(mel_pred, (0, 2, 1))

@@ -217,7 +217,7 @@ def main():
         with t.no_grad():
             mel_pred = model(mel)  # forward pass
 
-            # only consider the non-padded interval of the spec: zero columns are automatically mapped to zero
+            # only consider the non-padded interval of the spec: padded columns are automatically mapped to zero
             non_empty_mask = (mel[:, 1,:, :]+(-hp.pad_value)*torch.ones_like(mel[:, 1, :, :])).abs().sum(dim=2).bool()
             mel_pred = torch.permute(mel_pred, (0, 2, 1))
             mel_pred = mel_pred[non_empty_mask, :].unsqueeze(0)
