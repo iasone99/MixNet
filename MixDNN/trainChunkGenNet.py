@@ -178,9 +178,9 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
 
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts).to(hp.device)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise).to(hp.device)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
 
     melspec_tts=shiftMel.shiftMel(melspec_tts.unsqueeze(1),2,20).squeeze(1)
@@ -188,7 +188,7 @@ def batch_mels(data, mel_spectrogram, num_frames, tts):
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
     pad_len_clean = melspec_target.size(2)
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean).to(hp.device)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]
@@ -320,9 +320,9 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
 
     pad_len_noise = melspec_noise.size(2)
     pad_len_tts = melspec_tts.size(2)
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_tts).to(hp.device)
     melspec_tts = (torch.cat((mel_appnd, melspec_tts), dim=2))
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_noise).to(hp.device)
     melspec_noise = (torch.cat((mel_appnd, melspec_noise), dim=2))
 
     melspec_tts=shiftMel.shiftMel(melspec_tts.unsqueeze(1),2,20).squeeze(1)
@@ -330,7 +330,7 @@ def batch_mels_wav(data, mel_spectrogram, num_frames, tts):
     mel = torch.cat((melspec_tts.unsqueeze(1), melspec_noise.unsqueeze(1)), 1)
 
     pad_len_clean = melspec_target.size(2)
-    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean)
+    mel_appnd = hp.pad_value*torch.ones(melspec_noise.size(0), melspec_noise.size(1), num_frames - pad_len_clean).to(hp.device)
     mel_target = (torch.cat((mel_appnd, melspec_target), dim=2))
 
     mel = torch.permute(mel, (0, 1, 3, 2))  # [B,C,T,F]
